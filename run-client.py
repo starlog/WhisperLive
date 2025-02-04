@@ -13,4 +13,4 @@ client = TranscriptionClient(
   style="no_clear",                                    # complete, no_clear, empty
 )
 
-client("d:\shopping.wav")
+client("D:\shopping.wav")

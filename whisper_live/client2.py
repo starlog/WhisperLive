@@ -11,8 +11,14 @@ import websocket
 import uuid
 import time
 import av
+import requests
 import whisper_live.utils as utils
 
+isRecording = False
+#isPause = False
+
+def wait_for_keypress():
+    input("[INFO]: Press Enter to continue recording...")
 
 class Client2:
     """
@@ -126,6 +132,7 @@ class Client2:
     
     def process_segments_no_clear(self, segments):
         """Processes transcript segments."""
+#        global isPause  # Declare global variable at the beginning of the function
         text = []
         for i, seg in enumerate(segments):
             if not text or text[-1] != seg["text"]:
@@ -139,10 +146,40 @@ class Client2:
                     utils.clear_screen()
                     if self.last_display is None:
                         self.last_display = f"인식 완료 ======> {seg['start']}, {seg['end']} - {seg['text']}"
+                        if isRecording == True:
+                            print("[Info] sending text to AI")
+                            try:
+#                                isPause = True
+                                response = requests.post(
+                                    "http://localhost:9999/webhook/message",
+                                    json={"text": seg['text']}
+                                )
+                                if response.status_code == 200:
+                                    print("[INFO]: Successfully sent text to webhook.")
+                                else:
+                                    print(f"[ERROR]: Failed to send text to webhook. Status code: {response.status_code}")
+                            except requests.exceptions.RequestException as e:
+                                print(f"[ERROR]: Exception occurred while sending text to webhook: {e}")
+#                            wait_for_keypress()
                         print(self.last_display)
                     else:
                         print(self.last_display)
                         self.last_display = f"인식 완료 ======> {seg['start']}, {seg['end']} - {seg['text']}"
+                        if isRecording == True:
+                            print("[Info] sending text to AI")
+                            try:
+#                                isPause = True
+                                response = requests.post(
+                                    "http://localhost:9999/webhook/message",
+                                    json={"text": seg['text']}
+                                )
+                                if response.status_code == 200:
+                                    print("[INFO]: Successfully sent text to webhook.")
+                                else:
+                                    print(f"[ERROR]: Failed to send text to webhook. Status code: {response.status_code}")
+                            except requests.exceptions.RequestException as e:
+                                print(f"[ERROR]: Exception occurred while sending text to webhook: {e}")
+#                            wait_for_keypress()
                         print(self.last_display)
         # update last received segment and last valid response time
         if self.last_received_segment is None or self.last_received_segment != segments[-1]["text"]:
@@ -396,6 +433,10 @@ class TranscriptionTeeClient:
         elif rtsp_url is not None:
             self.process_rtsp_stream(rtsp_url)
         else:
+            print("[INFO]: Starting live recording ...")
+            global isRecording
+            isRecording = True
+            print(f"[INFO]: Recording {isRecording}")
             self.record()
 
     def close_all_clients(self):
@@ -602,6 +643,7 @@ class TranscriptionTeeClient:
         The recording process can be interrupted by sending a KeyboardInterrupt (e.g., pressing Ctrl+C). After recording,
         the method combines all the saved audio chunks into the specified `out_file`.
         """
+#        global isPause
         n_audio_file = 0
         if self.save_output_recording:
             if os.path.exists("chunks"):
@@ -611,6 +653,11 @@ class TranscriptionTeeClient:
             for _ in range(0, int(self.rate / self.chunk * self.record_seconds)):
                 if not any(client.recording for client in self.clients):
                     break
+
+#                print(f"isPause: {isPause}")
+#                while isPause:
+#                    time.sleep(0.1)  # Wait for isPause to become False
+
                 data = self.stream.read(self.chunk, exception_on_overflow=False)
                 self.frames += data
 
