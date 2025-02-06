@@ -14,6 +14,9 @@ import av
 import requests
 import whisper_live.utils as utils
 
+import pyaudio
+import numpy as np
+
 isRecording = False
 #isPause = False
 
@@ -42,6 +45,7 @@ class Client2:
         last_segment=None,
         style=None,
         last_display=None,
+        chatbot_url= "",
     ):
         """
         Initializes a Client instance for audio recording and streaming to a server.
@@ -74,6 +78,7 @@ class Client2:
         self.max_connection_time = max_connection_time
         self.style = style
         self.last_display = None
+        self.chatbot_url = chatbot_url
 
         if translate:
             self.task = "translate"
@@ -151,7 +156,8 @@ class Client2:
                             try:
 #                                isPause = True
                                 response = requests.post(
-                                    "http://localhost:9999/webhook/message",
+                                    # "http://localhost:9999/webhook/message",
+                                    self.chatbot_url,
                                     json={"text": seg['text']}
                                 )
                                 if response.status_code == 200:
@@ -170,7 +176,8 @@ class Client2:
                             try:
 #                                isPause = True
                                 response = requests.post(
-                                    "http://localhost:9999/webhook/message",
+                                    # "http://localhost:9999/webhook/message",
+                                    self.chatbot_url,
                                     json={"text": seg['text']}
                                 )
                                 if response.status_code == 200:
@@ -425,12 +432,17 @@ class TranscriptionTeeClient:
                     return
 
         print("[INFO]: Server Ready!")
+
+        print("Selection start")
         if hls_url is not None:
+            print("[INFO]: HLS mode ...")
             self.process_hls_stream(hls_url, save_file)
         elif audio is not None:
+            print("[INFO]: Audio file mode ...")
             resampled_file = utils.resample(audio)
             self.play_file(resampled_file)
         elif rtsp_url is not None:
+            print("[INFO]: RTSP mode ...")
             self.process_rtsp_stream(rtsp_url)
         else:
             print("[INFO]: Starting live recording ...")
@@ -524,6 +536,7 @@ class TranscriptionTeeClient:
         print("[INFO]: Connecting to RTSP stream...")
         try:
             container = av.open(rtsp_url, format="rtsp", options={"rtsp_transport": "tcp"})
+            print("[INFO]: Successfully connected to RTSP stream.")
             self.process_av_stream(container, stream_type="RTSP")
         except Exception as e:
             print(f"[ERROR]: Failed to process RTSP stream: {e}")
@@ -566,10 +579,19 @@ class TranscriptionTeeClient:
             stream_type (str): The type of stream being processed ("RTSP" or "HLS").
             save_file (str, optional): Local path to save the stream. Default is None.
         """
+        global isRecording
+        isRecording = True
         audio_stream = next((s for s in container.streams if s.type == "audio"), None)
         if not audio_stream:
             print(f"[ERROR]: No audio stream found in {stream_type} source.")
             return
+
+        print(f"audio_stream.format.bytes: {audio_stream.format.bytes}  audio_stream.channels: {audio_stream.channels}  audio_stream.rate: {audio_stream.rate}")
+        # p = pyaudio.PyAudio()
+        # stream = p.open(format=p.get_format_from_width(audio_stream.format.bytes),
+        #             channels=audio_stream.channels,
+        #             rate=int(audio_stream.rate),
+        #             output=True)
 
         output_container = None
         if save_file:
@@ -580,6 +602,9 @@ class TranscriptionTeeClient:
             for packet in container.demux(audio_stream):
                 for frame in packet.decode():
                     audio_data = frame.to_ndarray().tobytes()
+                    # print(f"[DEBUG]: Sending audio packet to server: {len(audio_data)} bytes")
+                    # Just for testing only, playing audio
+                    # stream.write(audio_data)
                     self.multicast_packet(audio_data)
 
                     if save_file:
@@ -643,7 +668,6 @@ class TranscriptionTeeClient:
         The recording process can be interrupted by sending a KeyboardInterrupt (e.g., pressing Ctrl+C). After recording,
         the method combines all the saved audio chunks into the specified `out_file`.
         """
-#        global isPause
         n_audio_file = 0
         if self.save_output_recording:
             if os.path.exists("chunks"):
@@ -653,10 +677,6 @@ class TranscriptionTeeClient:
             for _ in range(0, int(self.rate / self.chunk * self.record_seconds)):
                 if not any(client.recording for client in self.clients):
                     break
-
-#                print(f"isPause: {isPause}")
-#                while isPause:
-#                    time.sleep(0.1)  # Wait for isPause to become False
 
                 data = self.stream.read(self.chunk, exception_on_overflow=False)
                 self.frames += data
@@ -792,11 +812,12 @@ class TranscriptionClient(TranscriptionTeeClient):
         max_clients=4,
         max_connection_time=600,
         style=None,
+        chatbot_url= "http://localhost:9999/webhook/message"
     ):
         self.client = Client2(
             host, port, lang, translate, model, srt_file_path=output_transcription_path,
             use_vad=use_vad, log_transcription=log_transcription, max_clients=max_clients,
-            max_connection_time=max_connection_time, style=style
+            max_connection_time=max_connection_time, style=style, chatbot_url=chatbot_url
         )
 
         if save_output_recording and not output_recording_filename.endswith(".wav"):
