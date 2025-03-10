@@ -385,7 +385,7 @@ class TranscriptionServer:
         """
         if not self.vad_detector(frame_np):
             self.no_voice_activity_chunks += 1
-            if self.no_voice_activity_chunks > 3:
+            if self.no_voice_activity_chunks > 1:
                 client = self.client_manager.get_client(websocket)
                 if not client.eos:
                     client.set_eos(True)
