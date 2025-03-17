@@ -5,7 +5,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser(description='RTSP client')
     parser.add_argument('--rtsp_url', type=str, default='rtsp://localhost:8554/audio', help='RTSP URL')
-    parser.add_argument('--chatbot_url', type=str, default='http://localhost:9999/webhook/message', help='chatbot URL')
+    parser.add_argument('--chatbot_url', type=str, default='http://localhost:5000/stt', help='chatbot URL')
     args = parser.parse_args()
 
     client = TranscriptionClient(
