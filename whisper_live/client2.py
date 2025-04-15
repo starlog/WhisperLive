@@ -786,6 +786,7 @@ class TranscriptionClient(TranscriptionTeeClient):
         save_output_recording (bool, optional): Indicates whether to save recording from microphone.
         output_recording_filename (str, optional): File to save the output recording.
         output_transcription_path (str, optional): File to save the output transcription.
+        vad_parameters (dict, optional): Parameters for voice activity detection (e.g., {"onset": 0.5, "min_silence_duration_ms": 1000})
 
     Attributes:
         client (Client): An instance of the underlying Client class responsible for handling the WebSocket connection.
@@ -805,6 +806,7 @@ class TranscriptionClient(TranscriptionTeeClient):
         translate=False,
         model="small",
         use_vad=True,
+        vad_parameters=None,
         save_output_recording=False,
         output_recording_filename="./output_recording.wav",
         output_transcription_path="./output.srt",
@@ -814,11 +816,16 @@ class TranscriptionClient(TranscriptionTeeClient):
         style=None,
         chatbot_url= "http://localhost:9999/webhook/message"
     ):
+        self.vad_parameters = vad_parameters
         self.client = Client2(
             host, port, lang, translate, model, srt_file_path=output_transcription_path,
             use_vad=use_vad, log_transcription=log_transcription, max_clients=max_clients,
             max_connection_time=max_connection_time, style=style, chatbot_url=chatbot_url
         )
+
+        # Add vad_parameters to the client
+        if vad_parameters is not None:
+            self.client.vad_parameters = vad_parameters
 
         if save_output_recording and not output_recording_filename.endswith(".wav"):
             raise ValueError(f"Please provide a valid `output_recording_filename`: {output_recording_filename}")
