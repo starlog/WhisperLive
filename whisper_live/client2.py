@@ -16,12 +16,34 @@ import whisper_live.utils as utils
 
 import pyaudio
 import numpy as np
+from datetime import datetime
 
 isRecording = False
 #isPause = False
 
+# Add logging function to log to both console and file
+def log_message(message, level="INFO"):
+    """
+    Log a message to both console and file.
+    
+    Args:
+        message (str): The message to log
+        level (str): Log level (INFO, ERROR, WARN, DEBUG)
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    formatted_message = f"[{level}] {timestamp}: {message}"
+    
+    # Print to console
+    print(formatted_message)
+    
+    # Append to log file
+    log_file = "/tmp/whisper-client.log"
+    with open(log_file, "a") as f:
+        f.write(formatted_message + "\n")
+
 def wait_for_keypress():
-    input("[INFO]: Press Enter to continue recording...")
+    log_message("Press Enter to continue recording...", "INFO")
+    input()
 
 class Client2:
     """
@@ -97,7 +119,7 @@ class Client2:
                 ),
             )
         else:
-            print("[ERROR]: No host or port specified.")
+            log_message("No host or port specified.", "ERROR")
             return
 
         Client2.INSTANCES[self.uid] = self
@@ -108,19 +130,19 @@ class Client2:
         self.ws_thread.start()
 
         self.transcript = []
-        print("[INFO]: * recording")
+        log_message("* recording", "INFO")
 
     def handle_status_messages(self, message_data):
         """Handles server status messages."""
         status = message_data["status"]
         if status == "WAIT":
             self.waiting = True
-            print(f"[INFO]: Server is full. Estimated wait time {round(message_data['message'])} minutes.")
+            log_message(f"Server is full. Estimated wait time {round(message_data['message'])} minutes.", "INFO")
         elif status == "ERROR":
-            print(f"Message from Server: {message_data['message']}")
+            log_message(f"Message from Server: {message_data['message']}", "ERROR")
             self.server_error = True
         elif status == "WARNING":
-            print(f"Message from Server: {message_data['message']}")
+            log_message(f"Message from Server: {message_data['message']}", "WARN")
 
     def process_segments_complete(self, segments):
         """Processes transcript segments."""
@@ -129,9 +151,9 @@ class Client2:
             if seg.get("completed", True):
                 if not self.last_segment:
                     self.last_segment = seg
-                    print(f"{seg['start']}, {seg['end']} - {seg['text']}")
+                    log_message(f"{seg['start']}, {seg['end']} - {seg['text']}", "INFO")
                 if seg != self.last_segment:
-                    print(f"{seg['start']}, {seg['end']} - {seg['text']}")
+                    log_message(f"{seg['start']}, {seg['end']} - {seg['text']}", "INFO")
                     self.last_segment = seg
                 break
     
@@ -152,7 +174,7 @@ class Client2:
                     if self.last_display is None:
                         self.last_display = f"인식 완료 ======> {seg['start']}, {seg['end']} - {seg['text']}"
                         if isRecording == True:
-                            print("[Info] sending text to AI")
+                            log_message("sending text to AI", "INFO")
                             try:
 #                                isPause = True
                                 response = requests.post(
@@ -161,18 +183,18 @@ class Client2:
                                     json={"text": seg['text']}
                                 )
                                 if response.status_code == 200:
-                                    print("[INFO]: Successfully sent text to webhook.")
+                                    log_message("Successfully sent text to webhook.", "INFO")
                                 else:
-                                    print(f"[ERROR]: Failed to send text to webhook. Status code: {response.status_code}")
+                                    log_message(f"Failed to send text to webhook. Status code: {response.status_code}", "ERROR")
                             except requests.exceptions.RequestException as e:
-                                print(f"[ERROR]: Exception occurred while sending text to webhook: {e}")
+                                log_message(f"Exception occurred while sending text to webhook: {e}", "ERROR")
 #                            wait_for_keypress()
-                        print(self.last_display)
+                        log_message(self.last_display, "INFO")
                     else:
-                        print(self.last_display)
+                        log_message(self.last_display, "INFO")
                         self.last_display = f"인식 완료 ======> {seg['start']}, {seg['end']} - {seg['text']}"
                         if isRecording == True:
-                            print("[Info] sending text to AI")
+                            log_message("sending text to AI", "INFO")
                             try:
 #                                isPause = True
                                 response = requests.post(
@@ -181,13 +203,13 @@ class Client2:
                                     json={"text": seg['text']}
                                 )
                                 if response.status_code == 200:
-                                    print("[INFO]: Successfully sent text to webhook.")
+                                    log_message("Successfully sent text to webhook.", "INFO")
                                 else:
-                                    print(f"[ERROR]: Failed to send text to webhook. Status code: {response.status_code}")
+                                    log_message(f"Failed to send text to webhook. Status code: {response.status_code}", "ERROR")
                             except requests.exceptions.RequestException as e:
-                                print(f"[ERROR]: Exception occurred while sending text to webhook: {e}")
+                                log_message(f"Exception occurred while sending text to webhook: {e}", "ERROR")
 #                            wait_for_keypress()
-                        print(self.last_display)
+                        log_message(self.last_display, "INFO")
         # update last received segment and last valid response time
         if self.last_received_segment is None or self.last_received_segment != segments[-1]["text"]:
             self.last_response_received = time.time()
@@ -238,7 +260,7 @@ class Client2:
         message = json.loads(message)
 
         if self.uid != message.get("uid"):
-            print("[ERROR]: invalid client uid")
+            log_message("invalid client uid", "ERROR")
             return
 
         if "status" in message.keys():
@@ -246,21 +268,21 @@ class Client2:
             return
 
         if "message" in message.keys() and message["message"] == "DISCONNECT":
-            print("[INFO]: Server disconnected due to overtime.")
+            log_message("Server disconnected due to overtime.", "INFO")
             self.recording = False
 
         if "message" in message.keys() and message["message"] == "SERVER_READY":
             self.last_response_received = time.time()
             self.recording = True
             self.server_backend = message["backend"]
-            print(f"[INFO]: Server Running with backend {self.server_backend}")
+            log_message(f"Server Running with backend {self.server_backend}", "INFO")
             return
 
         if "language" in message.keys():
             self.language = message.get("language")
             lang_prob = message.get("language_prob")
-            print(
-                f"[INFO]: Server detected language {self.language} with probability {lang_prob}"
+            log_message(
+                f"Server detected language {self.language} with probability {lang_prob}", "INFO"
             )
             return
 
@@ -273,12 +295,12 @@ class Client2:
                 self.process_segments(message["segments"])
 
     def on_error(self, ws, error):
-        print(f"[ERROR] WebSocket Error: {error}")
+        log_message(f"WebSocket Error: {error}", "ERROR")
         self.server_error = True
         self.error_message = error
 
     def on_close(self, ws, close_status_code, close_msg):
-        print(f"[INFO]: Websocket connection closed: {close_status_code}: {close_msg}")
+        log_message(f"Websocket connection closed: {close_status_code}: {close_msg}", "INFO")
         self.recording = False
         self.waiting = False
 
@@ -293,7 +315,7 @@ class Client2:
             ws (websocket.WebSocketApp): The WebSocket client instance.
 
         """
-        print("[INFO]: Opened connection")
+        log_message("Opened connection", "INFO")
         ws.send(
             json.dumps(
                 {
@@ -319,7 +341,7 @@ class Client2:
         try:
             self.client_socket.send(message, websocket.ABNF.OPCODE_BINARY)
         except Exception as e:
-            print(e)
+            log_message(e, "ERROR")
 
     def close_websocket(self):
         """
@@ -332,12 +354,12 @@ class Client2:
         try:
             self.client_socket.close()
         except Exception as e:
-            print("[ERROR]: Error closing WebSocket:", e)
+            log_message(f"Error closing WebSocket: {e}", "ERROR")
 
         try:
             self.ws_thread.join()
         except Exception as e:
-            print("[ERROR:] Error joining WebSocket thread:", e)
+            log_message(f"Error joining WebSocket thread: {e}", "ERROR")
 
     def get_client_socket(self):
         """
@@ -405,7 +427,7 @@ class TranscriptionTeeClient:
                 frames_per_buffer=self.chunk,
             )
         except OSError as error:
-            print(f"[WARN]: Unable to access microphone. {error}")
+            log_message(f"Unable to access microphone. {error}", "WARN")
             self.stream = None
 
     def __call__(self, audio=None, rtsp_url=None, hls_url=None, save_file=None):
@@ -424,31 +446,31 @@ class TranscriptionTeeClient:
             source is not None for source in [audio, rtsp_url, hls_url]
         ) <= 1, 'You must provide only one selected source'
 
-        print("[INFO]: Waiting for server ready ...")
+        log_message("Waiting for server ready ...", "INFO")
         for client in self.clients:
             while not client.recording:
                 if client.waiting or client.server_error:
                     self.close_all_clients()
                     return
 
-        print("[INFO]: Server Ready!")
+        log_message("Server Ready!", "INFO")
 
-        print("Selection start")
+        log_message("Selection start", "INFO")
         if hls_url is not None:
-            print("[INFO]: HLS mode ...")
+            log_message("HLS mode ...", "INFO")
             self.process_hls_stream(hls_url, save_file)
         elif audio is not None:
-            print("[INFO]: Audio file mode ...")
+            log_message("Audio file mode ...", "INFO")
             resampled_file = utils.resample(audio)
             self.play_file(resampled_file)
         elif rtsp_url is not None:
-            print("[INFO]: RTSP mode ...")
+            log_message("RTSP mode ...", "INFO")
             self.process_rtsp_stream(rtsp_url)
         else:
-            print("[INFO]: Starting live recording ...")
+            log_message("Starting live recording ...", "INFO")
             global isRecording
             isRecording = True
-            print(f"[INFO]: Recording {isRecording}")
+            log_message(f"Recording {isRecording}", "INFO")
             self.record()
 
     def close_all_clients(self):
@@ -524,7 +546,7 @@ class TranscriptionTeeClient:
                 self.p.terminate()
                 self.close_all_clients()
                 self.write_all_clients_srt()
-                print("[INFO]: Keyboard interrupt.")
+                log_message("Keyboard interrupt.", "INFO")
 
     def process_rtsp_stream(self, rtsp_url):
         """
@@ -533,20 +555,20 @@ class TranscriptionTeeClient:
         Args:
             rtsp_url (str): The URL of the RTSP stream source.
         """
-        print("[INFO]: Connecting to RTSP stream...")
+        log_message("Connecting to RTSP stream...", "INFO")
         try:
             container = av.open(rtsp_url, format="rtsp", options={"rtsp_transport": "tcp"})
-            print("[INFO]: Successfully connected to RTSP stream.")
+            log_message("Successfully connected to RTSP stream.", "INFO")
             self.process_av_stream(container, stream_type="RTSP")
         except Exception as e:
-            print(f"[ERROR]: Failed to process RTSP stream: {e}")
+            log_message(f"Failed to process RTSP stream: {e}", "ERROR")
         finally:
             for client in self.clients:
                 client.wait_before_disconnect()
             self.multicast_packet(Client.END_OF_AUDIO.encode('utf-8'), True)
             self.close_all_clients()
             self.write_all_clients_srt()
-        print("[INFO]: RTSP stream processing finished.")
+        log_message("RTSP stream processing finished.", "INFO")
 
     def process_hls_stream(self, hls_url, save_file=None):
         """
@@ -556,19 +578,19 @@ class TranscriptionTeeClient:
             hls_url (str): The URL of the HLS stream source.
             save_file (str, optional): Local path to save the network stream.
         """
-        print("[INFO]: Connecting to HLS stream...")
+        log_message("Connecting to HLS stream...", "INFO")
         try:
             container = av.open(hls_url, format="hls")
             self.process_av_stream(container, stream_type="HLS", save_file=save_file)
         except Exception as e:
-            print(f"[ERROR]: Failed to process HLS stream: {e}")
+            log_message(f"Failed to process HLS stream: {e}", "ERROR")
         finally:
             for client in self.clients:
                 client.wait_before_disconnect()
             self.multicast_packet(Client.END_OF_AUDIO.encode('utf-8'), True)
             self.close_all_clients()
             self.write_all_clients_srt()
-        print("[INFO]: HLS stream processing finished.")
+        log_message("HLS stream processing finished.", "INFO")
 
     def process_av_stream(self, container, stream_type, save_file=None):
         """
@@ -583,10 +605,10 @@ class TranscriptionTeeClient:
         isRecording = True
         audio_stream = next((s for s in container.streams if s.type == "audio"), None)
         if not audio_stream:
-            print(f"[ERROR]: No audio stream found in {stream_type} source.")
+            log_message(f"No audio stream found in {stream_type} source.", "ERROR")
             return
 
-        print(f"audio_stream.format.bytes: {audio_stream.format.bytes}  audio_stream.channels: {audio_stream.channels}  audio_stream.rate: {audio_stream.rate}")
+        log_message(f"audio_stream.format.bytes: {audio_stream.format.bytes}  audio_stream.channels: {audio_stream.channels}  audio_stream.rate: {audio_stream.rate}", "INFO")
         # p = pyaudio.PyAudio()
         # stream = p.open(format=p.get_format_from_width(audio_stream.format.bytes),
         #             channels=audio_stream.channels,
@@ -602,7 +624,7 @@ class TranscriptionTeeClient:
             for packet in container.demux(audio_stream):
                 for frame in packet.decode():
                     audio_data = frame.to_ndarray().tobytes()
-                    # print(f"[DEBUG]: Sending audio packet to server: {len(audio_data)} bytes")
+                    # log_message(f"Sending audio packet to server: {len(audio_data)} bytes", "DEBUG")
                     # Just for testing only, playing audio
                     # stream.write(audio_data)
                     self.multicast_packet(audio_data)
@@ -610,7 +632,7 @@ class TranscriptionTeeClient:
                     if save_file:
                         output_container.mux(frame)
         except Exception as e:
-            print(f"[ERROR]: Error during {stream_type} stream processing: {e}")
+            log_message(f"Error during {stream_type} stream processing: {e}", "ERROR")
         finally:
             # Wait for server to send any leftover transcription.
             time.sleep(5)
