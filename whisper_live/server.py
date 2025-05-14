@@ -799,7 +799,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.initial_prompt = initial_prompt
         self.vad_parameters = vad_parameters or {"onset": 0.5}
         self.no_speech_thresh = 0.45
-        self.same_output_threshold = 10
+        self.same_output_threshold = 3
         self.end_time_for_same_output = None
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
