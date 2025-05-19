@@ -186,6 +186,7 @@ class TranscriptionServer:
                 if faster_whisper_custom_model_path is not None and os.path.exists(faster_whisper_custom_model_path):
                     logging.info(f"Using custom model {faster_whisper_custom_model_path}")
                     options["model"] = faster_whisper_custom_model_path
+                print(f"Using initial prompt: {options.get('initial_prompt')}")
                 client = ServeClientFasterWhisper(
                     websocket,
                     language=options["language"],

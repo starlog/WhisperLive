@@ -67,7 +67,8 @@ class Client2:
         last_segment=None,
         style=None,
         last_display=None,
-        chatbot_url= "",
+        chatbot_url="",
+        initial_prompt=None,  # Add this parameter
     ):
         """
         Initializes a Client instance for audio recording and streaming to a server.
@@ -101,6 +102,7 @@ class Client2:
         self.style = style
         self.last_display = None
         self.chatbot_url = chatbot_url
+        self.initial_prompt = initial_prompt  # Add this line
 
         if translate:
             self.task = "translate"
@@ -324,6 +326,7 @@ class Client2:
                     "task": self.task,
                     "model": self.model,
                     "use_vad": self.use_vad,
+                    "initial_prompt": self.initial_prompt,  # Add this line
                     "max_clients": self.max_clients,
                     "max_connection_time": self.max_connection_time,
                 }
@@ -836,13 +839,15 @@ class TranscriptionClient(TranscriptionTeeClient):
         max_clients=4,
         max_connection_time=600,
         style=None,
-        chatbot_url= "http://localhost:9999/webhook/message"
+        chatbot_url="http://localhost:9999/webhook/message",
+        initial_prompt=None  # Add this parameter
     ):
         self.vad_parameters = vad_parameters
         self.client = Client2(
             host, port, lang, translate, model, srt_file_path=output_transcription_path,
             use_vad=use_vad, log_transcription=log_transcription, max_clients=max_clients,
-            max_connection_time=max_connection_time, style=style, chatbot_url=chatbot_url
+            max_connection_time=max_connection_time, style=style, chatbot_url=chatbot_url,
+            initial_prompt=initial_prompt  # Pass it to Client2
         )
 
         # Add vad_parameters to the client
