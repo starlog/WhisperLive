@@ -24,7 +24,7 @@ def main():
         max_connection_time=600,
         style="no_clear",                                   # complete, no_clear, empty
         chatbot_url=args.chatbot_url,                       # Chatbot URL
-        initial_prompt="이번 대화는 아파트 주소를 포함합니다. 아파트 동은 4자리 또는 3자리 숫자입니다. 예: 1001동 302호, 1203동 701호, 103동 2호",
+        initial_prompt="",
     )
     
     while True:
